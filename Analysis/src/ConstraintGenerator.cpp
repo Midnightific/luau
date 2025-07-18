@@ -77,6 +77,28 @@ static std::optional<AstExpr*> matchRequire(const AstExprCall& call)
     return call.args.data[0];
 }
 
+static std::optional<AstExpr*> matchOvertureLoadLibrary(const AstExprCall& call)
+{
+    if (call.args.size != 1)
+        return std::nullopt;
+
+    const AstExprIndexName* indexName = call.func->as<AstExprIndexName>();
+    if (!indexName)
+        return std::nullopt;
+
+    if (indexName->index != "LoadLibrary")
+        return std::nullopt;
+
+    const AstExprGlobal* globalExpr = indexName->expr->as<AstExprGlobal>();
+    if (!globalExpr)
+        return std::nullopt;
+
+    if (globalExpr->name != "Overture")
+        return std::nullopt;
+
+    return call.args.data[0];
+}
+
 struct TypeGuard
 {
     bool isTypeof;
@@ -1229,13 +1251,20 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatLocal* stat
             if (!call)
                 continue;
 
-            auto maybeRequire = matchRequire(*call);
-            if (!maybeRequire)
+            AstExpr* moduleExpr = nullptr;
+            if (auto maybeRequire = matchRequire(*call))
+            {
+                moduleExpr = *maybeRequire;
+            }
+            else if (auto maybeOvertureLoadLibrary = matchOvertureLoadLibrary(*call))
+            {
+                moduleExpr = *maybeOvertureLoadLibrary;
+            }
+
+            if (!moduleExpr)
                 continue;
 
-            AstExpr* require = *maybeRequire;
-
-            auto moduleInfo = moduleResolver->resolveModuleInfo(module->name, *require);
+            auto moduleInfo = moduleResolver->resolveModuleInfo(module->name, *moduleExpr);
             if (!moduleInfo)
                 continue;
 

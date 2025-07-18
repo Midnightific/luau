@@ -229,6 +229,7 @@ struct TypeChecker
     );
 
     static std::optional<AstExpr*> matchRequire(const AstExprCall& call);
+    static std::optional<AstExpr*> matchOvertureLoadLibrary(const AstExprCall& call);
     TypeId checkRequire(const ScopePtr& scope, const ModuleInfo& moduleInfo, const Location& location);
 
     // Try to infer that the provided type is a table of some sort.

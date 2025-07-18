@@ -1123,11 +1123,19 @@ ControlFlow TypeChecker::check(const ScopePtr& scope, const AstStatLocal& local)
             if (!call)
                 continue;
 
+            AstExpr* moduleExpr = nullptr;
             if (auto maybeRequire = matchRequire(*call))
             {
-                AstExpr* require = *maybeRequire;
+                moduleExpr = *maybeRequire;
+            }
+            else if (auto maybeOvertureLoadLibrary = matchOvertureLoadLibrary(*call))
+            {
+                moduleExpr = *maybeOvertureLoadLibrary;
+            }
 
-                if (auto moduleInfo = resolver->resolveModuleInfo(currentModule->name, *require))
+            if (moduleExpr)
+            {
+                if (auto moduleInfo = resolver->resolveModuleInfo(currentModule->name, *moduleExpr))
                 {
                     const Name name{local.vars.data[i]->name.value};
 
@@ -4625,6 +4633,28 @@ std::unique_ptr<WithPredicate<TypePackId>> TypeChecker::checkCallOverload(
         return std::make_unique<WithPredicate<TypePackId>>(errorRecoveryTypePack(retPack));
     }
 
+    // Special handling for Overture:LoadLibrary calls
+    if (expr.self && expr.args.size == 1)
+    {
+        if (auto indexExpr = expr.func->as<AstExprIndexName>())
+        {
+            if (indexExpr->index == "LoadLibrary")
+            {
+                if (auto globalExpr = indexExpr->expr->as<AstExprGlobal>())
+                {
+                    if (globalExpr->name == "Overture")
+                    {
+                        if (auto moduleInfo = resolver->resolveModuleInfo(currentModule->name, *expr.args.data[0]))
+                        {
+                            TypeId moduleType = checkRequire(scope, *moduleInfo, expr.location);
+                            return std::make_unique<WithPredicate<TypePackId>>(addTypePack({moduleType}));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // When this function type has magic functions and did return something, we select that overload instead.
     // TODO: pass in a Unifier object to the magic functions? This will allow the magic functions to cooperate with overload resolution.
     if (ftv->magic)
@@ -4965,6 +4995,28 @@ std::optional<AstExpr*> TypeChecker::matchRequire(const AstExprCall& call)
         return std::nullopt;
 
     if (call.args.size != 1)
+        return std::nullopt;
+
+    return call.args.data[0];
+}
+
+std::optional<AstExpr*> TypeChecker::matchOvertureLoadLibrary(const AstExprCall& call)
+{
+    if (call.args.size != 1)
+        return std::nullopt;
+
+    const AstExprIndexName* indexName = call.func->as<AstExprIndexName>();
+    if (!indexName)
+        return std::nullopt;
+
+    if (indexName->index != "LoadLibrary")
+        return std::nullopt;
+
+    const AstExprGlobal* globalExpr = indexName->expr->as<AstExprGlobal>();
+    if (!globalExpr)
+        return std::nullopt;
+
+    if (globalExpr->name != "Overture")
         return std::nullopt;
 
     return call.args.data[0];

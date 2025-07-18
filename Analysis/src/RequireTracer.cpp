@@ -28,7 +28,22 @@ struct RequireTracer : AstVisitor
         AstExprGlobal* global = expr->func->as<AstExprGlobal>();
 
         if (global && global->name == "require" && expr->args.size >= 1)
+        {
             requireCalls.push_back(expr);
+        }
+        else
+        {
+            // Also handle Overture:LoadLibrary calls
+            AstExprIndexName* indexName = expr->func->as<AstExprIndexName>();
+            if (indexName && indexName->index == "LoadLibrary" && expr->args.size >= 1)
+            {
+                AstExprGlobal* overtureGlobal = indexName->expr->as<AstExprGlobal>();
+                if (overtureGlobal && overtureGlobal->name == "Overture")
+                {
+                    requireCalls.push_back(expr);
+                }
+            }
+        }
 
         return true;
     }
