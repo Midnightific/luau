@@ -1684,10 +1684,10 @@ static std::optional<AutocompleteEntryMap> autocompleteStringParams(
                 return convertRequireSuggestionsToAutocompleteEntryMap(fileResolver->getRequireSuggestions(module->name, candidateString));
             }
 
-#ifdef NEVERMORE_STRING_REQUIRE
-            if (tag == "StringRequire" && fileResolver)
+#ifdef OVERTURE_SUPPORT
+            if (tag == "OvertureLibraries" && fileResolver)
             {
-                // TODO: String require auto complete?
+                // TODO: Overture library auto complete?
                 // return convertRequireSuggestionsToAutocompleteEntryMap(fileResolver->getRequireSuggestions(module->name, candidateString));
             }
 #endif

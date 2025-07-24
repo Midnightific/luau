@@ -4134,10 +4134,12 @@ void TypeChecker::checkArgumentList(
             namePath = *path;
 
         auto [minParams, optMaxParams] = getParameterExtents(&state.log, paramPack);
-        state.reportError(TypeError{
-            location,
-            CountMismatch{minParams, optMaxParams, std::distance(begin(argPack), end(argPack)), CountMismatch::Context::Arg, false, namePath}
-        });
+        state.reportError(
+            TypeError{
+                location,
+                CountMismatch{minParams, optMaxParams, std::distance(begin(argPack), end(argPack)), CountMismatch::Context::Arg, false, namePath}
+            }
+        );
     };
 
     while (true)
@@ -4254,9 +4256,11 @@ void TypeChecker::checkArgumentList(
                     if (std::optional<std::string> path = getFunctionNameAsString(funName))
                         namePath = *path;
 
-                    state.reportError(TypeError{
-                        funName.location, CountMismatch{minParams, optMaxParams, paramIndex, CountMismatch::Context::Arg, isVariadic, namePath}
-                    });
+                    state.reportError(
+                        TypeError{
+                            funName.location, CountMismatch{minParams, optMaxParams, paramIndex, CountMismatch::Context::Arg, isVariadic, namePath}
+                        }
+                    );
                     return;
                 }
                 ++paramIter;
@@ -4330,7 +4334,7 @@ void TypeChecker::checkArgumentList(
 
                     if (exceedsLoopCount())
                         return;
-        }
+                }
 
                 TypePackId varPack = addTypePack(TypePackVar{TypePack{rest, argIter.tail()}});
                 state.tryUnify(varPack, tail);
@@ -4673,12 +4677,14 @@ std::unique_ptr<WithPredicate<TypePackId>> TypeChecker::checkCallOverload(
         else
             overloadsThatDont.push_back(fn);
 
-        errors.push_back(OverloadErrorEntry{
-            std::move(state.log),
-            std::move(state.errors),
-            args->head,
-            ftv,
-        });
+        errors.push_back(
+            OverloadErrorEntry{
+                std::move(state.log),
+                std::move(state.errors),
+                args->head,
+                ftv,
+            }
+        );
     }
     else
     {
@@ -4967,12 +4973,15 @@ std::optional<AstExpr*> TypeChecker::matchRequire(const AstExprCall& call)
     if (call.args.size != 1)
         return std::nullopt;
 
-#ifdef NEVERMORE_STRING_REQUIRE
-    const AstExprLocal* local = call.func->as<AstExprLocal>();
-    if (local && local->local->name == require)
+#ifdef OVERTURE_SUPPORT
+    const AstExprIndexName* indexName = call.func->as<AstExprIndexName>();
+    if (indexName && indexName->index == "LoadLibrary" && call.args.size >= 1)
     {
-        // TODO: Check class index of function as loader...
-        return call.args.data[0];
+        const AstExprLocal* local = indexName->expr->as<AstExprLocal>();
+        if (local && local->local->name == "Overture")
+        {
+            return call.args.data[0];
+        }
     }
 #endif
 

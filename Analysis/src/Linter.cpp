@@ -826,13 +826,18 @@ private:
         if (!call)
             return false;
 
-#ifdef NEVERMORE_STRING_REQUIRE
-        const AstExprLocal* local = call->func->as<AstExprLocal>();
-        if (local && local->local->name == "require")
+#ifdef OVERTURE_SUPPORT
+        const AstExprIndexName* indexName = call->func->as<AstExprIndexName>();
+        if (indexName && indexName->index == "LoadLibrary")
         {
-            return true;
+            const AstExprLocal* local = indexName->expr->as<AstExprLocal>();
+            if (local && local->local->name == "Overture")
+            {
+                return true;
+            }
         }
 #endif
+
         AstExprGlobal* glob = call->func->as<AstExprGlobal>();
         if (!glob)
             return false;
@@ -2301,36 +2306,36 @@ private:
 
     bool visit(AstExprLocal* node) override
     {
-            const FunctionType* fty = getFunctionType(node);
-            bool shouldReport = fty && fty->isDeprecatedFunction && !inScope(fty);
+        const FunctionType* fty = getFunctionType(node);
+        bool shouldReport = fty && fty->isDeprecatedFunction && !inScope(fty);
 
-            if (shouldReport)
-                report(node->location, node->local->name.value);
+        if (shouldReport)
+            report(node->location, node->local->name.value);
 
         return true;
     }
 
     bool visit(AstExprGlobal* node) override
     {
-            const FunctionType* fty = getFunctionType(node);
-            bool shouldReport = fty && fty->isDeprecatedFunction && !inScope(fty);
+        const FunctionType* fty = getFunctionType(node);
+        bool shouldReport = fty && fty->isDeprecatedFunction && !inScope(fty);
 
-            if (shouldReport)
-                report(node->location, node->name.value);
+        if (shouldReport)
+            report(node->location, node->name.value);
 
         return true;
     }
 
     bool visit(AstStatLocalFunction* node) override
     {
-            check(node->func);
-            return false;
+        check(node->func);
+        return false;
     }
 
     bool visit(AstStatFunction* node) override
     {
-            check(node->func);
-            return false;
+        check(node->func);
+        return false;
     }
 
     bool visit(AstExprIndexName* node) override

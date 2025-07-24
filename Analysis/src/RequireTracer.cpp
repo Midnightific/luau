@@ -32,12 +32,15 @@ struct RequireTracer : AstVisitor
         if (global && global->name == "require" && expr->args.size >= 1)
             requireCalls.push_back(expr);
 
-#ifdef NEVERMORE_STRING_REQUIRE
-        const AstExprLocal* local = expr->func->as<AstExprLocal>();
-        if (local && local->local->name == "require" && expr->args.size >= 1)
+#ifdef OVERTURE_SUPPORT
+        const AstExprIndexName* indexName = expr->func->as<AstExprIndexName>();
+        if (indexName && indexName->index == "LoadLibrary" && expr->args.size >= 1)
         {
-            // TODO: Check class index of function as loader...
-            requireCalls.push_back(expr);
+            const AstExprLocal* local = indexName->expr->as<AstExprLocal>();
+            if (local && local->local->name == "Overture")
+            {
+                requireCalls.push_back(expr);
+            }
         }
 #endif
 

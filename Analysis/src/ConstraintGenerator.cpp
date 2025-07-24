@@ -62,12 +62,15 @@ static std::optional<AstExpr*> matchRequire(const AstExprCall& call)
     if (call.args.size != 1)
         return std::nullopt;
 
-#ifdef NEVERMORE_STRING_REQUIRE
-    const AstExprLocal* local = call.func->as<AstExprLocal>();
-    if (local && local->local->name == require)
+#ifdef OVERTURE_SUPPORT
+    const AstExprIndexName* indexName = call.func->as<AstExprIndexName>();
+    if (indexName && indexName->index == "LoadLibrary")
     {
-        // TODO: Check class index of function as loader...
-        return call.args.data[0];
+        const AstExprLocal* local = indexName->expr->as<AstExprLocal>();
+        if (local && local->local->name == "Overture")
+        {
+            return call.args.data[0];
+        }
     }
 #endif
 
@@ -226,26 +229,14 @@ ConstraintSet ConstraintGenerator::run(AstStatBlock* block)
 {
     visitModuleRoot(block);
 
-    return ConstraintSet{
-        NotNull{rootScope},
-        std::move(constraints),
-        std::move(freeTypes),
-        std::move(scopeToFunction),
-        std::move(errors)
-    };
+    return ConstraintSet{NotNull{rootScope}, std::move(constraints), std::move(freeTypes), std::move(scopeToFunction), std::move(errors)};
 }
 
 ConstraintSet ConstraintGenerator::runOnFragment(const ScopePtr& resumeScope, AstStatBlock* block)
 {
     visitFragmentRoot(resumeScope, block);
 
-    return ConstraintSet{
-        NotNull{rootScope},
-        std::move(constraints),
-        std::move(freeTypes),
-        std::move(scopeToFunction),
-        std::move(errors)
-    };
+    return ConstraintSet{NotNull{rootScope}, std::move(constraints), std::move(freeTypes), std::move(scopeToFunction), std::move(errors)};
 }
 
 void ConstraintGenerator::visitModuleRoot(AstStatBlock* block)
@@ -1890,7 +1881,9 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatDeclareExte
         {
             reportError(
                 declaredExternType->location,
-                GenericError{format("Cannot use non-class type '%s' as a superclass of class '%s'", superName.c_str(), declaredExternType->name.value)}
+                GenericError{
+                    format("Cannot use non-class type '%s' as a superclass of class '%s'", superName.c_str(), declaredExternType->name.value)
+                }
             );
 
             return ControlFlow::None;
@@ -3239,7 +3232,7 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExprTable* expr, 
             {
                 indexKey = *indexKeyLowerBound.begin();
             }
-            else 
+            else
             {
                 indexKey = arena->addType(UnionType{std::vector(indexKeyLowerBound.begin(), indexKeyLowerBound.end())});
                 unionsToSimplify.push_back(indexKey);
@@ -3787,33 +3780,33 @@ TypeId ConstraintGenerator::resolveType_(const ScopePtr& scope, AstType* ty, boo
     }
     else if (auto unionAnnotation = ty->as<AstTypeUnion>())
     {
-            if (unionAnnotation->types.size == 1)
-                result = resolveType_(scope, unionAnnotation->types.data[0], inTypeArguments);
-            else
+        if (unionAnnotation->types.size == 1)
+            result = resolveType_(scope, unionAnnotation->types.data[0], inTypeArguments);
+        else
+        {
+            std::vector<TypeId> parts;
+            for (AstType* part : unionAnnotation->types)
             {
-                std::vector<TypeId> parts;
-                for (AstType* part : unionAnnotation->types)
-                {
-                    parts.push_back(resolveType_(scope, part, inTypeArguments));
-                }
-
-                result = arena->addType(UnionType{parts});
+                parts.push_back(resolveType_(scope, part, inTypeArguments));
             }
+
+            result = arena->addType(UnionType{parts});
+        }
     }
     else if (auto intersectionAnnotation = ty->as<AstTypeIntersection>())
     {
-            if (intersectionAnnotation->types.size == 1)
-                result = resolveType_(scope, intersectionAnnotation->types.data[0], inTypeArguments);
-            else
+        if (intersectionAnnotation->types.size == 1)
+            result = resolveType_(scope, intersectionAnnotation->types.data[0], inTypeArguments);
+        else
+        {
+            std::vector<TypeId> parts;
+            for (AstType* part : intersectionAnnotation->types)
             {
-                std::vector<TypeId> parts;
-                for (AstType* part : intersectionAnnotation->types)
-                {
-                    parts.push_back(resolveType_(scope, part, inTypeArguments));
-                }
-
-                result = arena->addType(IntersectionType{parts});
+                parts.push_back(resolveType_(scope, part, inTypeArguments));
             }
+
+            result = arena->addType(IntersectionType{parts});
+        }
     }
     else if (auto typeGroupAnnotation = ty->as<AstTypeGroup>())
     {
